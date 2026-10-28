@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商保信息查询</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f7fa;color:#333;padding:16px;-webkit-tap-highlight-color:transparent}
+.header{text-align:center;margin-bottom:20px;padding:24px 16px;background:linear-gradient(135deg,#00b4a0,#007a8c);color:#fff;border-radius:12px}
+.header h1{font-size:22px;margin-bottom:6px}
+.header p{font-size:13px;opacity:.9}
+.container{max-width:900px;margin:0 auto}
+.product-card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.product-name{font-size:16px;font-weight:700;margin-bottom:14px;color:#007a8c;border-left:4px solid #00b4a0;padding-left:10px;line-height:1.4}
+.btn-group{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.btn{padding:11px 4px;border:none;border-radius:8px;background:#e6f7f5;color:#007a8c;font-weight:700;cursor:pointer;font-size:13px;text-align:center;transition:.2s}
+.btn:active{background:#00b4a0;color:#fff}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:12px;width:100%;max-width:800px;max-height:85vh;overflow-y:auto;padding:20px;position:relative;-webkit-overflow-scrolling:touch}
+.modal-close{position:absolute;top:10px;right:14px;font-size:28px;color:#999;cursor:pointer;line-height:1}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:14px;color:#007a8c;padding-right:40px}
+.modal-img{width:100%;height:auto;border-radius:8px;margin-bottom:12px;border:1px solid #eee;display:block}
+.thumb-nav{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.thumb-nav img{width:56px;height:74px;object-fit:cover;border:2px solid transparent;border-radius:4px;cursor:pointer;flex-shrink:0}
+.thumb-nav img.active{border-color:#00b4a0}
+.phone-text{font-size:16px;line-height:1.8;color:#333}
+@media(max-width:600px){
+  body{padding:10px}
+  .header{padding:18px 12px;margin-bottom:16px}
+  .header h1{font-size:19px}
+  .product-card{padding:14px 12px;margin-bottom:12px}
+  .btn-group{grid-template-columns:repeat(2,1fr);gap:10px}
+  .btn{padding:12px 6px;font-size:14px;border-radius:10px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  .thumb-nav{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>商保信息查询</h1>
+    <p>平安双子星2026医疗产品</p>
+  </div>
+  <div id="app"></div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <span class="modal-close" id="modalClose">&times;</span>
+    <div class="modal-title" id="modalTitle"></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+const ASSET = "assets/";
+const IMG = {
+  "旗舰版":"img_flag.png",
+  "百万医疗":"img_million.png",
+  "全家保":"img_family.png",
+  "易保版":"img_yibao.png",
+  "长期医疗":"img_long.png",
+  "中端医疗":"img_mid.png",
+  "安欣保":"img_anxin.png",
+  "双子星":"img_star.png"
+};
+const DRUG = "drug/page_";
+const DRUG_N = 9;
+const DRUG_INFO = {
+  "旗舰版":"院外恶性肿瘤特药600万/0免赔；基因检测3万；质子重离子600万；重度临床急需进口药600万。",
+  "百万医疗":"院外恶性肿瘤特药600万/0免赔；基因检测2万；进口药300万；计划一1万免赔(家庭共享)。",
+  "全家保":"含特药责任，具体以家庭保单计划为准。",
+  "易保版":"基础特药覆盖，具体以条款为准。",
+  "长期医疗":"长期医疗特药覆盖，保证续保期内有效。",
+  "中端医疗":"中端医疗特药及外购药覆盖。",
+  "安欣保":"205种特药覆盖(含CAR-T)，20年保证续保。",
+  "双子星":"双子星特药目录，含院外特药及基因检测等。"
+};
+const PRODUCTS = [
+  {name:"平安e生保·2026旗舰版",key:"旗舰版",star:false},
+  {name:"平安e生保·百万医疗2026",key:"百万医疗",star:false},
+  {name:"平安e生保·全家保2026",key:"全家保",star:false},
+  {name:"平安e生保（易保版）",key:"易保版",star:false},
+  {name:"平安e生保·长期医疗（费率可调）",key:"长期医疗",star:false},
+  {name:"平安e生安心长期中端医疗保险2.0",key:"中端医疗",star:false},
+  {name:"平安安欣保长期医疗险（20年保证续保）",key:"安欣保",star:false},
+  {name:"平安双子星2026医疗产品",key:"双子星",star:true}
+];
+let drugPage = 0;
+
+function render(){
+  const app = document.getElementById('app');
+  PRODUCTS.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'product-card';
+    card.innerHTML = `<div class="product-name">${p.name}</div>
+      <div class="btn-group">
+        <button class="btn" data-act="detail" data-k="${p.key}" data-n="${p.name}">保障详情</button>
+        <button class="btn" data-act="claim" data-k="${p.key}" data-n="${p.name}" data-s="${p.star}">理赔路径</button>
+        <button class="btn" data-act="drug">特药目录</button>
+        <button class="btn" data-act="phone">咨询电话</button>
+      </div>`;
+    app.appendChild(card);
+  });
+  app.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    const act = b.dataset.act;
+    if(act==='detail') showDetail(b.dataset.n, b.dataset.k);
+    else if(act==='claim') showClaim(b.dataset.n, b.dataset.s==='true');
+    else if(act==='drug') showDrug();
+    else if(act==='phone') showPhone();
+  });
+}
+
+function showDetail(name, key){
+  const src = ASSET + IMG[key];
+  openModal(name+' · 保障详情', `<img class="modal-img" src="${src}" alt="保障详情" onerror="this.outerHTML='<p style=&quot;color:#c00&quot;>保障详情图片待补充（assets/'+IMG['${key}']+'）</p>'"><p style="font-size:13px;color:#888">点击图片可放大查看完整条款，具体保障责任以官方最新条款为准。</p>`);
+}
+
+function showClaim(name, isStar){
+  const lp = ASSET + "img_lp.png";
+  const ds = ASSET + "img_direct.png";
+  if(isStar){
+    openModal(name+' · 理赔路径', `<img class="modal-img" src="${ds}" alt="直结就医流程" onerror="this.style.display='none'">
+      <ul style="padding-left:18px;line-height:1.9">
+        <li>就医预约 → 持卡就诊 → 填写理赔单 → 完成就诊</li>
+        <li>保障范围内 0 现金就诊，出院即结算</li>
+        <li>电子卡查询：登录 APP/小程序 → 我的 → 直结卡</li>
+        <li>非直结申请：平安乐健康 App / 公众号 → 自助理赔</li>
+      </ul>`);
+  } else {
+    openModal(name+' · 理赔路径', `<img class="modal-img" src="${lp}" alt="理赔指南" onerror="this.style.display='none'">
+      <h3 style="margin:10px 0">在线理赔申请</h3>
+      <ul style="padding-left:18px;line-height:1.9">
+        <li><b>平安乐健康 App/小程序：</b>【我的】→【去理赔】→【自助理赔】</li>
+        <li><b>平安乐健康公众号：</b>【保单服务】→【在线理赔】</li>
+        <li><b>进度查询：</b>【理赔记录】→【理赔中】</li>
+        <li><b>赔款支付：</b>结案后 3 个工作日内</li>
+      </ul>
+      <h3 style="margin:12px 0 6px">出院即赔</h3>
+      <ul style="padding-left:18px;line-height:1.9">
+        <li>院前报案 → 代办交单 → 出院支付</li>
+        <li>理赔专员 1V1，资料协助代办</li>
+      </ul>`);
+  }
+}
+
+function showDrug(){
+  drugPage = 0;
+  let h = `<img class="modal-img" id="drugMain" src="${ASSET}${DRUG}1.jpg" alt="特药目录" onclick="drugStep(1)">
+    <div class="thumb-nav" id="drugThumbs">`;
+  for(let i=1;i<=DRUG_N;i++){
+    h += `<img src="${ASSET}${DRUG}${i}.png" data-i="${i}" class="${i===1?'active':''}" onclick="drugJump(${i})">`;
+  }
+  h += `</div><p style="font-size:12px;color:#888;margin-top:8px">点击大图翻页，或点击缩略图跳转</p>`;
+  openModal('特药目录', h);
+}
+function drugStep(dir){
+  drugPage = (drugPage + dir + DRUG_N) % DRUG_N;
+  drugJump(drugPage + 1);
+}
+function drugJump(i){
+  drugPage = i - 1;
+  const m = document.getElementById('drugMain');
+  if(m) m.src = ASSET + DRUG + i + '.jpg';
+  document.querySelectorAll('#drugThumbs img').forEach(t=>t.classList.toggle('active', Number(t.dataset.i)===i));
+}
+
+function showPhone(){
+  openModal('咨询电话', '<p class="phone-text">平安健康险客服专线：95511 转 7（健康险专线，7×24 小时）</p>');
+}
+
+function openModal(title, body){
+  document.getElementById('modalTitle').innerHTML = title;
+  document.getElementById('modalBody').innerHTML = body;
+  document.getElementById('modal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  document.body.style.overflow = '';
+}
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modal').addEventListener('click', e=>{ if(e.target===e.currentTarget) closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+render();
+</script>
+</body>
+</html>
